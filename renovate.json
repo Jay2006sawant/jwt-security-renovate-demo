@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": "!/^0/",
+      "automerge": true
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "assignees": ["your-github-username"],
+    "labels": ["security", "dependencies", "critical"],
+    "commitMessage": "fix(security): update {{depName}} to {{newVersion}} to fix {{#each vulnerabilities}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}",
+    "prTitle": "fix(security): update {{depName}} to {{newVersion}} to fix security vulnerabilities"
+  },
+  "commitMessagePrefix": "chore(deps):",
+  "commitMessageAction": "update",
+  "commitMessageTopic": "{{depName}}",
+  "commitMessageExtra": "to {{newVersion}}",
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 0
+} 
