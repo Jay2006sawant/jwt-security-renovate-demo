@@ -45,4 +45,4 @@ jobs:
         echo "- GO-2025-3373: IPv6 zone ID bypass in crypto/x509" >> $GITHUB_STEP_SUMMARY
         echo "- GO-2021-0052: HTTP Request interpretation in gin" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "These vulnerabilities are expected as this is a demonstration project." >> $GITHUB_STEP_SUMMARY
+        echo "These vulnerabilities are expected as this is a demonstration project." >> $GITHUB_STEP_SUMMARY 

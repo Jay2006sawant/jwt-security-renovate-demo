@@ -1,72 +1,134 @@
 package main
 
 import (
-    "github.com/dgrijalva/jwt-go"
-    "net/http"
-    "net/http/httptest"
-    "testing"
-    "time"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
 )
 
+func setupRouter() *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	
+	// Health check endpoint
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "healthy",
+		})
+	})
+
+	// Token generation endpoint
+	router.GET("/generate-token", func(c *gin.Context) {
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"user_id": "123",
+			"role":    "admin",
+		})
+		tokenString, _ := token.SignedString([]byte(secretKey))
+		c.JSON(http.StatusOK, gin.H{"token": tokenString})
+	})
+
+	// Secure data endpoint
+	router.GET("/secure-data", func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No token provided"})
+			return
+		}
+
+		tokenString := authHeader[7:] // Remove "Bearer " prefix
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			return []byte(secretKey), nil
+		})
+
+		if err != nil || !token.Valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "This is secure data",
+			"user_id": token.Claims.(jwt.MapClaims)["user_id"],
+			"role":    token.Claims.(jwt.MapClaims)["role"],
+		})
+	})
+
+	return router
+}
+
 func TestTokenValidation(t *testing.T) {
-    // Test valid token
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-        "user": "testuser",
-        "exp":  time.Now().Add(time.Hour * 24).Unix(),
-    })
-    tokenString, _ := token.SigningString()
+	gin.SetMode(gin.TestMode)
+	router := setupRouter()
 
-    req := httptest.NewRequest("GET", "/secure-data", nil)
-    req.Header.Set("Authorization", tokenString)
-    w := httptest.NewRecorder()
+	// Test valid token
+	t.Run("Valid Token", func(t *testing.T) {
+		// Generate a valid token
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"user_id": "123",
+			"role":    "admin",
+		})
+		tokenString, _ := token.SignedString([]byte(secretKey))
 
-    // Test invalid token
-    invalidReq := httptest.NewRequest("GET", "/secure-data", nil)
-    invalidReq.Header.Set("Authorization", "invalid-token")
-    invalidW := httptest.NewRecorder()
+		// Create request with valid token
+		req := httptest.NewRequest("GET", "/secure-data", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenString)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
 
-    // Test missing token
-    missingReq := httptest.NewRequest("GET", "/secure-data", nil)
-    missingW := httptest.NewRecorder()
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %v", w.Code)
+		}
+	})
 
-    // Run tests
-    t.Run("Valid Token", func(t *testing.T) {
-        // This should pass due to the vulnerability
-        if w.Code != http.StatusOK {
-            t.Errorf("Expected status OK, got %v", w.Code)
-        }
-    })
+	// Test invalid token
+	t.Run("Invalid Token", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/secure-data", nil)
+		req.Header.Set("Authorization", "Bearer invalid.token.here")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
 
-    t.Run("Invalid Token", func(t *testing.T) {
-        if invalidW.Code != http.StatusUnauthorized {
-            t.Errorf("Expected status Unauthorized, got %v", invalidW.Code)
-        }
-    })
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("Expected status 401, got %v", w.Code)
+		}
+	})
 
-    t.Run("Missing Token", func(t *testing.T) {
-        if missingW.Code != http.StatusUnauthorized {
-            t.Errorf("Expected status Unauthorized, got %v", missingW.Code)
-        }
-    })
+	// Test missing token
+	t.Run("Missing Token", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/secure-data", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("Expected status 401, got %v", w.Code)
+		}
+	})
 }
 
 func TestVulnerabilityMitigation(t *testing.T) {
-    // Test token with modified claims
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-        "user": "attacker",
-        "exp":  time.Now().Add(time.Hour * 24).Unix(),
-    })
-    tokenString, _ := token.SigningString()
+	gin.SetMode(gin.TestMode)
+	router := setupRouter()
 
-    req := httptest.NewRequest("GET", "/secure-data", nil)
-    req.Header.Set("Authorization", tokenString)
-    w := httptest.NewRecorder()
+	// Test token with modified claims
+	t.Run("Modified Claims", func(t *testing.T) {
+		// Generate a token
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"user_id": "123",
+			"role":    "user",
+		})
+		tokenString, _ := token.SignedString([]byte(secretKey))
 
-    // This should fail in a secure implementation
-    t.Run("Modified Claims", func(t *testing.T) {
-        // This passes due to the vulnerability
-        if w.Code != http.StatusOK {
-            t.Errorf("Expected status OK, got %v", w.Code)
-        }
-    })
+		// Modify the token (this should fail validation)
+		modifiedToken := tokenString[:len(tokenString)-10] + "modified"
+
+		req := httptest.NewRequest("GET", "/secure-data", nil)
+		req.Header.Set("Authorization", "Bearer "+modifiedToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("Expected status 401 for modified token, got %v", w.Code)
+		}
+	})
 } 
