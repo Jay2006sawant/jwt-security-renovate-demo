@@ -60,8 +60,8 @@ func main() {
             "exp":  time.Now().Add(time.Hour * 24).Unix(),
         })
 
-        // Vulnerable: Using a weak secret key
-        tokenString, err := token.SigningString()
+        // Fix: Use SignedString instead of SigningString to get the complete token with signature
+        tokenString, err := token.SignedString([]byte(secretKey))
         if err != nil {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
             return
