@@ -16,7 +16,7 @@
   "vulnerabilityAlerts": {
     "enabled": true,
     "schedule": ["at any time"],
-    "assignees": ["your-github-username"],
+    "assignees": ["Jay2006sawant"],
     "labels": ["security", "dependencies", "critical"],
     "commitMessage": "fix(security): update {{depName}} to {{newVersion}} to fix {{#each vulnerabilities}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}",
     "prTitle": "fix(security): update {{depName}} to {{newVersion}} to fix security vulnerabilities"

@@ -1,4 +1,4 @@
-module github.com/yourusername/jwt-security-renovate-demo
+module github.com/Jay2006sawant/jwt-security-renovate-demo
 
 go 1.21
 
